@@ -179,6 +179,21 @@ define macro conde
     { ?goal:expression; ... } => { ?goal, ... }
 end macro conde;
 
+define macro run
+  { run(n, ?lvars:*) ?goals:* end } => 
+    { map(reify-1st, take(n, call/goal(fresh (?lvars) ?goals end))) }
+end;
+
+define macro run*
+  { run*(?lvars:*) ?goals:* end } => 
+    { map(reify-1st, take-all(call/goal(fresh (?lvars) ?goals end))) }
+end;
+
+define variable empty-state = make(<minikanren-state>, s: #(), c:0);
+
+define function call/goal(g)
+  g(empty-state);
+end function call/goal;
 
 define function pull(stream)
   if (instance?(stream, <function>))
@@ -210,16 +225,6 @@ define function take-all(stream)
     pair(head(stream^), take-all(tail(stream^)));
   end if;
 end function take-all;
-
-define macro run
-  { run(n, ?lvars:*) ?goals:* end } => 
-    { map(reify-1st, take(n, call/goal(fresh (?lvars) ?goals))) }
-end;
-
-define macro run*
-  { run*(?lvars:*) ?goals:* end } => 
-    { map(reify-1st, take-all(call/goal(fresh (?lvars) ?goals))) }
-end;
 
 define function reify-1st (mk-state)
   let v = walk*(make-lvar(0), mk-state.substitution);
