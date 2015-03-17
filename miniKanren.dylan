@@ -4,7 +4,7 @@ Author:
 Copyright: 
 
 
-define class <logic-var> (<object>)
+define sealed class <logic-var> (<object>)
  slot id :: <integer>, required-init-keyword: id:;
 end;
 
@@ -13,8 +13,8 @@ define method print-object(object :: <logic-var>, stream :: <stream>) => ()
   format(stream, "_.%s", object.id);
 end;
 
-define class <minikanren-state> (<object>)
-  slot substitution, required-init-keyword: s:;
+define sealed class <minikanren-state> (<object>)
+  slot substitution :: <list>, required-init-keyword: s:;
   slot counter :: <integer>, required-init-keyword: c:;
 end;
 
@@ -25,43 +25,38 @@ end;
 define function make-lvar (id :: <integer>)
   make(<logic-var>, id: id);
 end function make-lvar;
-  
+
 define function lvar? (obj)
   instance?(obj, <logic-var>); 
 end function lvar?;
 
 define function lvar=? (lvar1 :: <logic-var>, lvar2 :: <logic-var>)
-  lvar1.id = lvar2.id;
+  lvar1.id == lvar2.id;
 end function lvar=?;
 
-
-define function null?(object)
-  object == #();
-end;
-
-define function lookup (lv, substitution)
+define function lookup (lv :: <logic-var>, substitution :: <list>)
   case
-    null?(substitution) => #f;
+    empty?(substitution) => #f;
     lvar=?(lv, head(head(substitution))) => tail(head(substitution));
     otherwise => lookup(lv, tail(substitution));
   end case;
 end function lookup;
 
-define function extend-s (x, v, s)
+define function extend-s (x, v, s :: <list>)
   pair(pair(x, v), s);
 end function extend-s;
 
-define function walk(u, substitution)
+define function walk(u, substitution :: <list>)
   let pr = lvar?(u) & lookup(u, substitution);
   if (pr)
     walk(pr, substitution);
   else
-    u
+    u;
   end if;
 end function walk;
 
 define function eqeq(u, v)
-  method(mk-state)
+  method(mk-state :: <minikanren-state>)
     let new-substitution = unify(u, v, mk-state.substitution);
     if (new-substitution)
       unit(make(<minikanren-state>, s: new-substitution, c: mk-state.counter));
@@ -71,9 +66,9 @@ define function eqeq(u, v)
   end method;
 end function eqeq;
 
-define variable mzero = #();
+define constant mzero = #();
 
-define function unit (mk-state)
+define function unit (mk-state :: <minikanren-state>)
   pair(mk-state, mzero);
 end function unit;
 
@@ -81,13 +76,13 @@ define function pair? (obj)
   instance?(obj, <pair>) 
 end function pair?;
 
-define function unify-pair (u, v, s)
+define function unify-pair (u :: <pair>, v :: <pair>, s :: <list>)
   let s^ = unify(head(u), head(v), s);
   s^ & unify(tail(u), tail(v), s^);
 end function unify-pair;
 
 // will need to collect prefix for =/=; dylan doesn't have eq?
-define function unify (u, v, s)
+define function unify (u, v, s :: <list>)
   let u = walk(u, s);
   let v = walk(v, s);
   case
@@ -101,7 +96,7 @@ define function unify (u, v, s)
 end function unify;
 
 define function call/fresh (fn)
-  method(mk-state)
+  method(mk-state :: <minikanren-state>)
     let c = mk-state.counter;
     let mk-state^ = make(<minikanren-state>,
                          s: mk-state.substitution,
@@ -112,36 +107,36 @@ define function call/fresh (fn)
 end function call/fresh;
 
 define function disj (goal1, goal2)
-  method(mk-state)
+  method(mk-state :: <minikanren-state>)
     mplus(goal1(mk-state), goal2(mk-state));
   end method;
 end function disj;
 
 define function conj (goal1, goal2)
-  method(mk-state)
+  method(mk-state :: <minikanren-state>)
     bind(goal1(mk-state), goal2);
   end method;
 end function conj;
 
 define function mplus (stream1, stream2) => (interleaved-stream)
   case
-    null?(stream1) => stream2;
     instance?(stream1, <function>) => method() mplus(stream2, stream1()) end;
+    empty?(stream1) => stream2;
     otherwise => pair(head(stream1), mplus(tail(stream1), stream2));
   end case;
 end function mplus;
 
 define function bind (stream, goal)
   case
-    null?(stream) => mzero;
     instance?(stream, <function>) => method() bind(stream(), goal) end;
+    empty?(stream) => mzero;
     otherwise => mplus(goal(head(stream)), bind(tail(stream), goal));
   end case;
 end function bind;
 
 define macro Zzz
   { Zzz(?goal:*) } =>
-    { method (mk-state)
+    { method (mk-state :: <minikanren-state>)
         method ()
           ?goal(mk-state);
         end method;
@@ -150,18 +145,18 @@ end macro Zzz;
 
 define macro conj+
   { conj+(?goal:expression) } => { Zzz(?goal) }
-  { conj+(?goal:expression, ?goals:*) }=> { conj(Zzz(?goal), conj+(?goals)) }
+  { conj+(?goal:expression, ?goals:*) } => { conj(Zzz(?goal), conj+(?goals)) }
 end macro conj+;
 
 define macro disj+
   { disj+(?goal:expression) } => { Zzz(?goal) }
-  { disj+(?goal:expression, ?goals:*) }=> { disj(Zzz(?goal), disj+(?goals)) }
+  { disj+(?goal:expression, ?goals:*) } => { disj(Zzz(?goal), disj+(?goals)) }
 end macro disj+;
 
 define macro fresh
   { fresh () ?goals:* end } => { conj+(?goals) }
   { fresh (?lvar:name, ?lvars:*) ?goals:* end }
-    => { call/fresh(method(?lvar)
+    => { call/fresh(method(?lvar :: <logic-var>)
                       fresh (?lvars) ?goals end;
                     end method) }
   goals:
@@ -180,8 +175,8 @@ define macro conde
 end macro conde;
 
 define macro run
-  { run(n, ?lvars:*) ?goals:* end } => 
-    { map(reify-1st, take(n, call/goal(fresh (?lvars) ?goals end))) }
+  { run (?n:expression, ?lvars:*) ?goals:* end } => 
+    { map(reify-1st, take(?n, call/goal(fresh (?lvars) ?goals end))) }
 end;
 
 define macro run*
@@ -189,13 +184,13 @@ define macro run*
     { map(reify-1st, take-all(call/goal(fresh (?lvars) ?goals end))) }
 end;
 
-define variable empty-state = make(<minikanren-state>, s: #(), c:0);
+define constant $empty-state = make(<minikanren-state>, s: #(), c:0);
 
 define function call/goal(g)
-  g(empty-state);
+  g($empty-state);
 end function call/goal;
 
-define function pull(stream)
+define function pull(stream) => (forced-pair :: <pair>)
   if (instance?(stream, <function>))
     pull(stream());
   else
@@ -203,12 +198,12 @@ define function pull(stream)
   end if;
 end function pull;
 
-define function take(n, stream)
-  if (n = 0)
+define function take(n :: <integer>, stream)
+  if (zero?(n))
     #()
   else 
     let stream^ = pull(stream);
-    if (null?(stream^))
+    if (empty?(stream^))
       #()
     else
       pair(head(stream^), take(n - 1, tail(stream^)));
@@ -219,19 +214,19 @@ end function take;
 
 define function take-all(stream)
   let stream^ = pull(stream);
-  if (null?(stream^))
+  if (empty?(stream^))
     #()
   else
     pair(head(stream^), take-all(tail(stream^)));
   end if;
 end function take-all;
 
-define function reify-1st (mk-state)
+define function reify-1st (mk-state :: <minikanren-state>)
   let v = walk*(make-lvar(0), mk-state.substitution);
   walk*(v, reify-s(v, #()));
 end function reify-1st;
 
-define function walk* (v, s)
+define function walk* (v, s :: <list>)
   let v^ = walk(v, s);
   case
     lvar?(v^) => v^;
@@ -241,13 +236,13 @@ define function walk* (v, s)
   end case;
 end function walk*;
 
-define function reify-s(v, s)
+define function reify-s(v, s :: <list>)
   let v^ = walk(v, s);
   case
-    lvar?(v^) => block ()
+    lvar?(v^) => begin
                    let n = make-lvar(size(s));
                    pair(pair(v^, n), s);
-                 end block;
+                 end;
     pair?(v^) => reify-s(tail(v^), reify-s(head(v^), s));
     otherwise => s;
   end case;
