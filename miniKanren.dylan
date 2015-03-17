@@ -204,7 +204,7 @@ define function call/goal(g)
   g($empty-state);
 end function call/goal;
 
-define function pull(stream) => (forced-pair :: <pair>)
+define function pull(stream) => (forced)
   if (instance?(stream, <function>))
     pull(stream());
   else
