@@ -3,10 +3,11 @@ Synopsis:
 Author:
 Copyright: 
 
-
 define sealed class <logic-var> (<object>)
  slot id :: <integer>, required-init-keyword: id:;
 end;
+define sealed domain make(singleton(<logic-var>));
+define sealed domain initialize(<logic-var>);
 
 define method print-object(object :: <logic-var>, stream :: <stream>) => ()
   // format(stream, "<lvar %s>", object.id);
@@ -17,12 +18,14 @@ define sealed class <minikanren-state> (<object>)
   slot substitution :: <list>, required-init-keyword: s:;
   slot counter :: <integer>, required-init-keyword: c:;
 end;
+define sealed domain make(singleton(<minikanren-state>));
+define sealed domain initialize(<minikanren-state>);
 
 define method print-object(object :: <minikanren-state>, stream :: <stream>) => ()
   format(stream, "<mks s: %s, c: %s>", object.substitution, object.counter);
 end;
 
-define function make-lvar (id :: <integer>)
+define inline function make-lvar (id :: <integer>)
   make(<logic-var>, id: id);
 end function make-lvar;
 
