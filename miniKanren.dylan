@@ -29,7 +29,7 @@ define inline function make-lvar (id :: <integer>)
   make(<logic-var>, id: id);
 end function make-lvar;
 
-define function lvar? (obj)
+define inline function lvar? (obj)
   instance?(obj, <logic-var>); 
 end function lvar?;
 
@@ -89,7 +89,7 @@ define function unit (mk-state :: <minikanren-state>)
   pair(mk-state, mzero);
 end function unit;
 
-define function pair? (obj)
+define inline function pair? (obj)
   instance?(obj, <pair>) 
 end function pair?;
 
@@ -112,7 +112,7 @@ define function unify (u, v, s :: <list>)
   end case;
 end function unify;
 
-define function call/fresh (fn)
+define function call/fresh (fn :: <function>)
   method(mk-state :: <minikanren-state>)
     let c = mk-state.counter;
     let mk-state^ = make(<minikanren-state>,
@@ -123,19 +123,20 @@ define function call/fresh (fn)
   end method;
 end function call/fresh;
 
-define function disj (goal1, goal2)
+define function disj (goal1 :: <goal>, goal2 :: <goal>)
   method(mk-state :: <minikanren-state>)
     mplus(goal1(mk-state), goal2(mk-state));
   end method;
 end function disj;
 
-define function conj (goal1, goal2)
+define function conj (goal1 :: <goal>, goal2 :: <goal>)
   method(mk-state :: <minikanren-state>)
     bind(goal1(mk-state), goal2);
   end method;
 end function conj;
 
-define function mplus (stream1, stream2) => (interleaved-stream)
+define function mplus (stream1 :: <mk-stream>, stream2 :: <mk-stream>)
+  => (interleaved-stream :: <mk-stream>)
   case
     instance?(stream1, <function>) => method() mplus(stream2, stream1()) end;
     empty?(stream1) => stream2;
@@ -143,7 +144,8 @@ define function mplus (stream1, stream2) => (interleaved-stream)
   end case;
 end function mplus;
 
-define function bind (stream, goal)
+define function bind (stream :: <mk-stream>, goal)
+  => (new-stream :: <mk-stream>)
   case
     instance?(stream, <function>) => method() bind(stream(), goal) end;
     empty?(stream) => mzero;
@@ -202,12 +204,14 @@ define macro run*
 end;
 
 define constant $empty-state = make(<minikanren-state>, s: #(), c:0);
+define constant <mk-stream> = type-union(<function>, <list>);
+define constant <goal> = <function>;
 
-define function call/goal(g)
+define function call/goal(g :: <goal>)
   g($empty-state);
 end function call/goal;
 
-define function pull(stream) => (forced)
+define function pull(stream :: <mk-stream>) => (forced)
   if (instance?(stream, <function>))
     pull(stream());
   else
@@ -215,11 +219,11 @@ define function pull(stream) => (forced)
   end if;
 end function pull;
 
-define function take(n :: <integer>, stream)
+define function take(n :: <integer>, stream :: <mk-stream>)
   if (zero?(n))
     #()
   else 
-    let stream^ = pull(stream);
+    let stream^ :: <list> = pull(stream);
     if (empty?(stream^))
       #()
     else
@@ -228,9 +232,8 @@ define function take(n :: <integer>, stream)
   end if;
 end function take;
 
-
-define function take-all(stream)
-  let stream^ = pull(stream);
+define function take-all(stream :: <mk-stream>)
+  let stream^ :: <list>  = pull(stream);
   if (empty?(stream^))
     #()
   else
