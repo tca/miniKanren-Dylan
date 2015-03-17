@@ -25,7 +25,7 @@ define method print-object(object :: <minikanren-state>, stream :: <stream>) => 
   format(stream, "<mks s: %s, c: %s>", object.substitution, object.counter);
 end;
 
-define inline function make-lvar (id :: <integer>)
+define inline function make-lvar (id :: <integer>) => (lvar :: <logic-var>)
   make(<logic-var>, id: id);
 end function make-lvar;
 
@@ -38,19 +38,27 @@ define function lvar=? (lvar1 :: <logic-var>, lvar2 :: <logic-var>)
 end function lvar=?;
 
 define function lookup (lv :: <logic-var>, substitution :: <list>)
-  case
-    empty?(substitution) => #f;
-    lvar=?(lv, head(head(substitution))) => tail(head(substitution));
-    otherwise => lookup(lv, tail(substitution));
-  end case;
+  if (empty?(substitution))
+    #f;
+  else 
+    let first :: <list> = head(substitution);
+    let var :: <logic-var> = head(first);
+    case  
+      lvar=?(lv, var) => tail(first);
+      otherwise => lookup(lv, tail(substitution));
+    end case;
+  end if;
 end function lookup;
 
 define function occurs-check (x :: <logic-var>, v, s :: <list>) => (occurs? :: <boolean>)
   let v^ = walk(v, s);
   case
       lvar?(v^) => lvar=?(v^, x);
-      pair?(v^) => (occurs-check(x, head(v^), s)
-                      | occurs-check(x, tail(v^), s));
+      pair?(v^) => begin 
+                     let v^^ :: <pair> = v^;
+                     (occurs-check(x, head(v^^), s)
+                        | occurs-check(x, tail(v^^), s));
+                   end;
       otherwise => #f;
   end case;
 end function occurs-check;
@@ -137,20 +145,28 @@ end function conj;
 
 define function mplus (stream1 :: <mk-stream>, stream2 :: <mk-stream>)
   => (interleaved-stream :: <mk-stream>)
-  case
-    instance?(stream1, <function>) => method() mplus(stream2, stream1()) end;
-    empty?(stream1) => stream2;
-    otherwise => pair(head(stream1), mplus(tail(stream1), stream2));
-  end case;
+  if (instance?(stream1, <function>))
+    method() mplus(stream2, stream1()) end;
+  else
+    let stream1^ :: <list> = stream1;
+    case
+      (stream1^ == mzero) => stream2;
+      otherwise => pair(head(stream1^), mplus(tail(stream1^), stream2));
+    end case;
+  end if;
 end function mplus;
 
 define function bind (stream :: <mk-stream>, goal)
   => (new-stream :: <mk-stream>)
-  case
-    instance?(stream, <function>) => method() bind(stream(), goal) end;
-    empty?(stream) => mzero;
-    otherwise => mplus(goal(head(stream)), bind(tail(stream), goal));
-  end case;
+  if (instance?(stream, <function>))
+    method() bind(stream(), goal) end;
+  else
+    let stream^ :: <list> = stream;
+    case
+      (stream^ == mzero) => mzero;
+      otherwise => mplus(goal(head(stream^)), bind(tail(stream^), goal));
+    end case;
+  end if;
 end function bind;
 
 define macro Zzz
@@ -211,7 +227,7 @@ define function call/goal(g :: <goal>)
   g($empty-state);
 end function call/goal;
 
-define function pull(stream :: <mk-stream>) => (forced)
+define function pull(stream :: <mk-stream>) => (forced :: <list>)
   if (instance?(stream, <function>))
     pull(stream());
   else
@@ -223,7 +239,7 @@ define function take(n :: <integer>, stream :: <mk-stream>)
   if (zero?(n))
     #()
   else 
-    let stream^ :: <list> = pull(stream);
+    let stream^ = pull(stream);
     if (empty?(stream^))
       #()
     else
@@ -233,7 +249,7 @@ define function take(n :: <integer>, stream :: <mk-stream>)
 end function take;
 
 define function take-all(stream :: <mk-stream>)
-  let stream^ :: <list>  = pull(stream);
+  let stream^ = pull(stream);
   if (empty?(stream^))
     #()
   else
@@ -250,8 +266,11 @@ define function walk* (v, s :: <list>)
   let v^ = walk(v, s);
   case
     lvar?(v^) => v^;
-    pair?(v^) => pair(walk*(head(v^), s),
-                      walk*(tail(v^), s));
+    pair?(v^) => begin
+                   let v^^ :: <pair> = v^;
+                   pair(walk*(head(v^^), s),
+                        walk*(tail(v^^), s));
+                 end;
     otherwise => v^;
   end case;
 end function walk*;
@@ -263,7 +282,10 @@ define function reify-s(v, s :: <list>)
                    let n = make-lvar(size(s));
                    pair(pair(v^, n), s);
                  end;
-    pair?(v^) => reify-s(tail(v^), reify-s(head(v^), s));
+    pair?(v^) => begin
+                   let v^^ :: <pair> = v^;
+                   reify-s(tail(v^^), reify-s(head(v^^), s));
+                 end;
     otherwise => s;
   end case;
 end function reify-s;
