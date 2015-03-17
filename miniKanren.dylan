@@ -38,14 +38,14 @@ define inline function lvar=? (lvar1 :: <logic-var>, lvar2 :: <logic-var>)
   lvar1.id == lvar2.id;
 end function lvar=?;
 
-define function lookup (lv :: <logic-var>, substitution :: <list>)
+define function lookup (lv :: <integer>, substitution :: <list>)
   if (empty?(substitution))
     #f;
   else 
     let first :: <pair> = head(substitution);
-    let var :: <logic-var> = head(first);
+    let var :: <integer> = head(first);
     case  
-      lvar=?(lv, var) => tail(first);
+      lv == var => tail(first);
       otherwise => lookup(lv, tail(substitution));
     end case;
   end if;
@@ -69,12 +69,12 @@ define function extend-s (x :: <logic-var>, v, s :: <list>)
   if (occurs-check(x, v, s))
     #f;
   else
-    pair(pair(x, v), s);
+    pair(pair(x.id, v), s);
   end if;
 end function extend-s;
 
 define function walk(u, substitution :: <list>) => (root-value)
-  let pr = lvar?(u) & lookup(u, substitution);
+  let pr = lvar?(u) & lookup(u.id, substitution);
   if (pr)
     walk(pr, substitution);
   else
@@ -120,7 +120,11 @@ define function unify (u, v, s :: <list>)
     lvar?(u) & lvar?(v) & lvar=?(u, v) => s;
     lvar?(u) => extend-s(u, v, s);
     lvar?(v) => extend-s(v, u, s);
-    pair?(u) & pair?(v) => unify-pair(u, v, s);
+    pair?(u) & pair?(v) => begin
+                             let u^ :: <pair> = u;
+                             let v^ :: <pair> = v;
+                             unify-pair(u^, v^, s);
+                           end;
     (u == v) => s;
     otherwise => #f;
   end case;
@@ -288,7 +292,7 @@ define function reify-s(v, s :: <list>)
   case
     lvar?(v^) => begin
                    let n = make-lvar(size(s));
-                   pair(pair(v^, n), s);
+                   pair(pair(v^.id, n), s);
                  end;
     pair?(v^) => begin
                    let v^^ :: <pair> = v^;
