@@ -29,11 +29,12 @@ define inline function make-lvar (id :: <integer>) => (lvar :: <logic-var>)
   make(<logic-var>, id: id);
 end function make-lvar;
 
-define inline function lvar? (obj)
+define inline function lvar? (obj) => (is-lvar? :: <boolean>)
   instance?(obj, <logic-var>); 
 end function lvar?;
 
-define function lvar=? (lvar1 :: <logic-var>, lvar2 :: <logic-var>)
+define inline function lvar=? (lvar1 :: <logic-var>, lvar2 :: <logic-var>)
+  => (vars-equal? :: <boolean>)
   lvar1.id == lvar2.id;
 end function lvar=?;
 
@@ -41,7 +42,7 @@ define function lookup (lv :: <logic-var>, substitution :: <list>)
   if (empty?(substitution))
     #f;
   else 
-    let first :: <list> = head(substitution);
+    let first :: <pair> = head(substitution);
     let var :: <logic-var> = head(first);
     case  
       lvar=?(lv, var) => tail(first);
@@ -64,6 +65,7 @@ define function occurs-check (x :: <logic-var>, v, s :: <list>) => (occurs? :: <
 end function occurs-check;
 
 define function extend-s (x :: <logic-var>, v, s :: <list>)
+  => (new-s :: <maybe-substitution>)
   if (occurs-check(x, v, s))
     #f;
   else
@@ -71,7 +73,7 @@ define function extend-s (x :: <logic-var>, v, s :: <list>)
   end if;
 end function extend-s;
 
-define function walk(u, substitution :: <list>)
+define function walk(u, substitution :: <list>) => (root-value)
   let pr = lvar?(u) & lookup(u, substitution);
   if (pr)
     walk(pr, substitution);
@@ -80,7 +82,7 @@ define function walk(u, substitution :: <list>)
   end if;
 end function walk;
 
-define function eqeq(u, v)
+define function eqeq(u, v) => (stream :: <mk-stream>)
   method(mk-state :: <minikanren-state>)
     let new-substitution = unify(u, v, mk-state.substitution);
     if (new-substitution)
@@ -93,21 +95,25 @@ end function eqeq;
 
 define constant mzero = #();
 
-define function unit (mk-state :: <minikanren-state>)
+define inline function unit (mk-state :: <minikanren-state>)
   pair(mk-state, mzero);
 end function unit;
 
-define inline function pair? (obj)
+define inline function pair? (obj) => (is-pair? :: <boolean>)
   instance?(obj, <pair>) 
 end function pair?;
 
-define function unify-pair (u :: <pair>, v :: <pair>, s :: <list>)
+define constant <maybe-substitution> = type-union(singleton(#f), <list>);
+
+define inline function unify-pair (u :: <pair>, v :: <pair>, s :: <list>)
+  => (result :: <maybe-substitution>)
   let s^ = unify(head(u), head(v), s);
   s^ & unify(tail(u), tail(v), s^);
 end function unify-pair;
 
 // will need to collect prefix for =/=; dylan doesn't have eq?
 define function unify (u, v, s :: <list>)
+  => (result  :: <maybe-substitution>)
   let u = walk(u, s);
   let v = walk(v, s);
   case
@@ -120,7 +126,7 @@ define function unify (u, v, s :: <list>)
   end case;
 end function unify;
 
-define function call/fresh (fn :: <function>)
+define function call/fresh (fn :: <function>) => (goal :: <goal>)
   method(mk-state :: <minikanren-state>)
     let c = mk-state.counter;
     let mk-state^ = make(<minikanren-state>,
@@ -132,12 +138,14 @@ define function call/fresh (fn :: <function>)
 end function call/fresh;
 
 define function disj (goal1 :: <goal>, goal2 :: <goal>)
+  => (interleaved-goals :: <goal>)
   method(mk-state :: <minikanren-state>)
     mplus(goal1(mk-state), goal2(mk-state));
   end method;
 end function disj;
 
 define function conj (goal1 :: <goal>, goal2 :: <goal>)
+  => (conjoined-goals :: <goal>)
   method(mk-state :: <minikanren-state>)
     bind(goal1(mk-state), goal2);
   end method;
