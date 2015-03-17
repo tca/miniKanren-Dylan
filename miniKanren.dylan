@@ -42,8 +42,22 @@ define function lookup (lv :: <logic-var>, substitution :: <list>)
   end case;
 end function lookup;
 
-define function extend-s (x, v, s :: <list>)
-  pair(pair(x, v), s);
+define function occurs-check (x :: <logic-var>, v, s :: <list>) => (occurs? :: <boolean>)
+  let v^ = walk(v, s);
+  case
+      lvar?(v^) => lvar=?(v^, x);
+      pair?(v^) => (occurs-check(x, head(v^), s)
+                      | occurs-check(x, tail(v^), s));
+      otherwise => #f;
+  end case;
+end function occurs-check;
+
+define function extend-s (x :: <logic-var>, v, s :: <list>)
+  if (occurs-check(x, v, s))
+    #f;
+  else
+    pair(pair(x, v), s);
+  end if;
 end function extend-s;
 
 define function walk(u, substitution :: <list>)
