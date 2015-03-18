@@ -3,6 +3,42 @@ Synopsis:
 Author:
 Copyright: 
 
+
+define constant <substitution> = <btree>;
+define constant <maybe-substitution> = type-union(singleton(#f), <substitution>);
+define constant $empty-substitution = $empty-btree;
+
+define constant update = btree-update;
+define constant lookup = btree-lookup;
+
+
+// define constant <substitution> = <list>;
+// define constant <maybe-substitution> = type-union(singleton(#f), <substitution>);
+// define constant $empty-substitution = #();
+
+
+// define constant update = aupdate;
+// define constant lookup = alookup;
+
+// define inline function aupdate(k :: <integer>, v, map :: <list>)
+//   pair(pair(k, v), map);
+// end;
+
+
+// define function alookup (lv :: <integer>, substitution :: <substitution>)
+//   if (empty?(substitution))
+//     #f;
+//   else 
+//     let first :: <pair> = head(substitution);
+//     let var :: <integer> = head(first);
+//     case  
+//       lv == var => tail(first);
+//       otherwise => alookup(lv, tail(substitution));
+//     end case;
+//   end if;
+// end;
+
+
 define sealed class <logic-var> (<object>)
  slot id :: <integer>, required-init-keyword: id:;
 end;
@@ -15,7 +51,7 @@ define method print-object(object :: <logic-var>, stream :: <stream>) => ()
 end;
 
 define sealed class <minikanren-state> (<object>)
-  slot substitution :: <list>, required-init-keyword: s:;
+  slot substitution :: <substitution>, required-init-keyword: s:;
   slot counter :: <integer>, required-init-keyword: c:;
 end;
 define sealed domain make(singleton(<minikanren-state>));
@@ -38,20 +74,8 @@ define inline function lvar=? (lvar1 :: <logic-var>, lvar2 :: <logic-var>)
   lvar1.id == lvar2.id;
 end function lvar=?;
 
-define function lookup (lv :: <integer>, substitution :: <list>)
-  if (empty?(substitution))
-    #f;
-  else 
-    let first :: <pair> = head(substitution);
-    let var :: <integer> = head(first);
-    case  
-      lv == var => tail(first);
-      otherwise => lookup(lv, tail(substitution));
-    end case;
-  end if;
-end function lookup;
 
-define function occurs-check (x :: <logic-var>, v, s :: <list>) => (occurs? :: <boolean>)
+define function occurs-check (x :: <logic-var>, v, s :: <substitution>) => (occurs? :: <boolean>)
   let v^ = walk(v, s);
   case
       lvar?(v^) => lvar=?(v^, x);
@@ -64,16 +88,16 @@ define function occurs-check (x :: <logic-var>, v, s :: <list>) => (occurs? :: <
   end case;
 end function occurs-check;
 
-define function extend-s (x :: <logic-var>, v, s :: <list>)
+define function extend-s (x :: <logic-var>, v, s :: <substitution>)
   => (new-s :: <maybe-substitution>)
   if (occurs-check(x, v, s))
     #f;
   else
-    pair(pair(x.id, v), s);
+    update(x.id, v, s);
   end if;
 end function extend-s;
 
-define function walk(u, substitution :: <list>) => (root-value)
+define function walk(u, substitution :: <substitution>) => (root-value)
   let pr = lvar?(u) & lookup(u.id, substitution);
   if (pr)
     walk(pr, substitution);
@@ -103,16 +127,14 @@ define inline function pair? (obj) => (is-pair? :: <boolean>)
   instance?(obj, <pair>) 
 end function pair?;
 
-define constant <maybe-substitution> = type-union(singleton(#f), <list>);
-
-define inline function unify-pair (u :: <pair>, v :: <pair>, s :: <list>)
+define inline function unify-pair (u :: <pair>, v :: <pair>, s :: <substitution>)
   => (result :: <maybe-substitution>)
   let s^ = unify(head(u), head(v), s);
   s^ & unify(tail(u), tail(v), s^);
 end function unify-pair;
 
 // will need to collect prefix for =/=; dylan doesn't have eq?
-define function unify (u, v, s :: <list>)
+define function unify (u, v, s :: <substitution>)
   => (result  :: <maybe-substitution>)
   let u = walk(u, s);
   let v = walk(v, s);
@@ -231,7 +253,7 @@ define macro run*
     { map(reify-1st, take-all(call/goal(fresh (?lvars) ?goals end))) }
 end;
 
-define constant $empty-state = make(<minikanren-state>, s: #(), c:0);
+define constant $empty-state = make(<minikanren-state>, s: $empty-substitution, c:0);
 define constant <mk-stream> = type-union(<function>, <list>);
 define constant <goal> = <function>;
 
@@ -249,11 +271,11 @@ end function pull;
 
 define function take(n :: <integer>, stream :: <mk-stream>)
   if (zero?(n))
-    #()
+    mzero;
   else 
     let stream^ = pull(stream);
     if (empty?(stream^))
-      #()
+      mzero;
     else
       pair(head(stream^), take(n - 1, tail(stream^)));
     end if;
@@ -263,7 +285,7 @@ end function take;
 define function take-all(stream :: <mk-stream>)
   let stream^ = pull(stream);
   if (empty?(stream^))
-    #()
+    mzero;
   else
     pair(head(stream^), take-all(tail(stream^)));
   end if;
@@ -271,10 +293,10 @@ end function take-all;
 
 define function reify-1st (mk-state :: <minikanren-state>)
   let v = walk*(make-lvar(0), mk-state.substitution);
-  walk*(v, reify-s(v, #()));
+  walk*(v, reify-s(v, $empty-substitution));
 end function reify-1st;
 
-define function walk* (v, s :: <list>)
+define function walk* (v, s :: <substitution>)
   let v^ = walk(v, s);
   case
     lvar?(v^) => v^;
@@ -287,12 +309,12 @@ define function walk* (v, s :: <list>)
   end case;
 end function walk*;
 
-define function reify-s(v, s :: <list>)
+define function reify-s(v, s :: <substitution>)
   let v^ = walk(v, s);
   case
     lvar?(v^) => begin
                    let n = make-lvar(size(s));
-                   pair(pair(v^.id, n), s);
+                   update(v^.id, n, s);
                  end;
     pair?(v^) => begin
                    let v^^ :: <pair> = v^;
