@@ -68,6 +68,34 @@ define test test-append ()
                 #(#(1, 2, 3, 4, 5, 6), #())));
 end;
 
+define benchmark lists1 ()
+  run (100, q)
+    fresh (x, y, z)
+      eqeq(list(x, y), q);
+      appendo(x, y, z);
+    end;
+  end;
+end;
+
+define function make-test-list (n, m)
+  if (n <= 0)
+    m;
+  else
+    make-test-list(n - 1, pair(n,m));
+  end;
+end;
+
+define constant $test-list = make-test-list(250, #());
+
+define benchmark lists2 ()
+  run* (q)
+    fresh (x, y)
+      eqeq(q, list(x, y));
+      appendo(x, y, $test-list);
+    end;
+  end;
+end;
+
 define suite minikanren-test-suite ()
   test test-append;
 end;
