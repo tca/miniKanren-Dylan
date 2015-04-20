@@ -5,6 +5,8 @@ Copyright: Copyright (c) 2015 David Kahn. See LICENSE for details.
 define library miniKanren
   use common-dylan;
   use io;
+
+  export miniKanren;
 end library miniKanren;
 
 define module llrb-tree
