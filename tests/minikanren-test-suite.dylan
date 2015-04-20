@@ -98,6 +98,8 @@ end;
 
 define suite minikanren-test-suite ()
   test test-append;
+  benchmark lists1;
+  benchmark lists2;
 end;
 
 begin
