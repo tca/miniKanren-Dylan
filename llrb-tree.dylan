@@ -9,11 +9,11 @@ define constant $red = #t;
 define constant $black = #f;
 
 define class <btree-branch> (<btree>)
-  slot color :: <boolean>, required-init-keyword: color:;
-  slot key :: <integer>, required-init-keyword: key:;
-  slot val, required-init-keyword: val:;
-  slot left :: <btree>, required-init-keyword: left:;
-  slot right :: <btree>, required-init-keyword: right:;
+  constant slot color :: <boolean>, required-init-keyword: color:;
+  constant slot key :: <integer>, required-init-keyword: key:;
+  constant slot val, required-init-keyword: val:;
+  constant slot left :: <btree>, required-init-keyword: left:;
+  constant slot right :: <btree>, required-init-keyword: right:;
 end class;
 
 define class <btree-empty> (<btree>)

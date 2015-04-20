@@ -40,7 +40,7 @@ define constant lookup = btree-lookup;
 
 
 define sealed class <logic-var> (<object>)
- slot id :: <integer>, required-init-keyword: id:;
+ constant slot id :: <integer>, required-init-keyword: id:;
 end;
 
 define sealed domain make (singleton(<logic-var>));
@@ -52,8 +52,8 @@ define method print-object(object :: <logic-var>, stream :: <stream>) => ()
 end;
 
 define sealed class <minikanren-state> (<object>)
-  slot substitution :: <substitution>, required-init-keyword: s:;
-  slot counter :: <integer>, required-init-keyword: c:;
+  constant slot substitution :: <substitution>, required-init-keyword: s:;
+  constant slot counter :: <integer>, required-init-keyword: c:;
 end;
 
 define sealed domain make (singleton(<minikanren-state>));

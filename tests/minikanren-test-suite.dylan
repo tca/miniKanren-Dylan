@@ -3,17 +3,6 @@ Synopsis:
 Author:
 License:
 
-define function main ()
-  let filename = locator-name(as(<file-locator>, application-name()));
-  if (split(filename, ".")[0] = "minikanren-test-suite")
-    run-test-application(minikanren-test-suite);
-  end;
-end function main;
-
-define suite minikanren-test-suite ()
-  test test-append;
-end;
-
 define function appendo (l, s, out)
   conde
     { eqeq(#(), l); eqeq(s, out) };
@@ -79,4 +68,13 @@ define test test-append ()
                 #(#(1, 2, 3, 4, 5, 6), #())));
 end;
 
-main();
+define suite minikanren-test-suite ()
+  test test-append;
+end;
+
+begin
+  let filename = locator-name(as(<file-locator>, application-name()));
+  if (split(filename, ".")[0] = "minikanren-test-suite")
+    run-test-application(minikanren-test-suite);
+  end;
+end;
