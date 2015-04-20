@@ -12,7 +12,7 @@ define module llrb-tree
   use format;
   use print;
   use format-out;
-  export btree-lookup, $empty-btree,
+  export btree-lookup, $btree-not-found, $empty-btree,
     btree-update, <btree>;
 end module binary-tree;
 

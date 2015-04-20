@@ -20,9 +20,15 @@ define class <btree-empty> (<btree>)
 end class;
 define constant $empty-btree = make(<btree-empty>);
 
+define class <btree-not-found> (<object>)
+end class;
+
+define constant $btree-not-found = make(<btree-not-found>);
+
+
 define function btree-lookup (k :: <integer>, btree :: <btree>) => (value)
   if (instance?(btree, <btree-empty>))
-    #f;
+    $btree-not-found;
   else
     let btree :: <btree-branch> = btree;
     case
@@ -131,7 +137,6 @@ define method size(object :: <btree>) => (size :: <integer>)
 end;
 
 define method print-object(btree :: <btree-empty>, stream :: <stream>) => ()
-  format(stream, "()");
 end;
 
 define method print-object(btree :: <btree-branch>, stream :: <stream>) => ()

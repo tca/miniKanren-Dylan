@@ -4,29 +4,23 @@ Copyright: Copyright (c) 2015 David Kahn. See LICENSE for details.
 
 
 define constant <substitution> = <btree>;
-define constant <maybe-substitution> = type-union(singleton(#f), <substitution>);
+define constant $substitution-not-found = $btree-not-found;
 define constant $empty-substitution = $empty-btree;
 
 define constant update = btree-update;
 define constant lookup = btree-lookup;
 
 
-// define constant <substitution> = <list>;
-// define constant <maybe-substitution> = type-union(singleton(#f), <substitution>);
-// define constant $empty-substitution = #();
 
 
-// define constant update = aupdate;
-// define constant lookup = alookup;
 
 // define inline function aupdate(k :: <integer>, v, map :: <list>)
 //   pair(pair(k, v), map);
 // end;
 
-
 // define function alookup (lv :: <integer>, substitution :: <substitution>)
 //   if (empty?(substitution))
-//     #f;
+//     $asoc-not-found;
 //   else 
 //     let first :: <pair> = head(substitution);
 //     let var :: <integer> = head(first);
@@ -36,6 +30,13 @@ define constant lookup = btree-lookup;
 //     end case;
 //   end if;
 // end;
+
+// define constant <substitution> = <list>;
+// define constant $substitution-not-found = $assoc-not-found
+// define constant $empty-substitution = #();
+
+// define constant update = aupdate;
+// define constant lookup = alookup;
 
 
 define sealed class <logic-var> (<object>)
@@ -88,7 +89,7 @@ define function occurs-check (x :: <logic-var>, v, s :: <substitution>) => (occu
 end function occurs-check;
 
 define function extend-s (x :: <logic-var>, v, s :: <substitution>)
-  => (new-s :: <maybe-substitution>)
+  => (new-s :: type-union(singleton(#f), <substitution>))
   if (occurs-check(x, v, s))
     #f;
   else
@@ -97,9 +98,13 @@ define function extend-s (x :: <logic-var>, v, s :: <substitution>)
 end function extend-s;
 
 define function walk(u, substitution :: <substitution>) => (root-value)
-  let pr = lvar?(u) & lookup(u.id, substitution);
-  if (pr)
-    walk(pr, substitution);
+  if (lvar?(u))
+    let pr = lookup(u.id, substitution);
+    if (pr ~= $substitution-not-found)
+      walk(pr, substitution);
+    else
+      u;
+    end
   else
     u;
   end if;
@@ -127,14 +132,14 @@ define inline function pair? (obj) => (is-pair? :: <boolean>)
 end function pair?;
 
 define inline function unify-pair (u :: <pair>, v :: <pair>, s :: <substitution>)
-  => (result :: <maybe-substitution>)
+  => (result :: type-union(singleton(#f), <substitution>))
   let s^ = unify(head(u), head(v), s);
   s^ & unify(tail(u), tail(v), s^);
 end function unify-pair;
 
 // will need to collect prefix for =/=; dylan doesn't have eq?
 define function unify (u, v, s :: <substitution>)
-  => (result  :: <maybe-substitution>)
+  => (result  :: type-union(singleton(#f), <substitution>))
   let u = walk(u, s);
   let v = walk(v, s);
   case
