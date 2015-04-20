@@ -18,6 +18,7 @@ end class;
 
 define class <btree-empty> (<btree>)
 end class;
+
 define constant $empty-btree = make(<btree-empty>);
 
 define class <btree-not-found> (<object>)
@@ -39,7 +40,7 @@ define function btree-lookup (k :: <integer>, btree :: <btree>) => (value)
   end if;
 end function;
 
-define function red?(btree :: <btree>)
+define function red? (btree :: <btree>)
   if (instance?(btree, <btree-empty>))
     #f
   else
@@ -86,7 +87,7 @@ define function btree-update (k :: <integer>, v, btree :: <btree>)
 end;
 
 define function btree-update% (k :: <integer>, v, btree :: <btree>)
-  => (updated-tree :: <btree>)
+ => (updated-tree :: <btree>)
   if (instance?(btree, <btree-empty>))
     make(<btree-branch>, key: k, val: v, left: $empty-btree, right: $empty-btree, color: $red);
   else
@@ -132,14 +133,14 @@ define function btree-size (btree :: <btree>) => (size :: <integer>)
   end case;
 end;
 
-define method size(object :: <btree>) => (size :: <integer>)
+define method size (object :: <btree>) => (size :: <integer>)
   btree-size(object);
 end;
 
-define method print-object(btree :: <btree-empty>, stream :: <stream>) => ()
+define method print-object (btree :: <btree-empty>, stream :: <stream>) => ()
 end;
 
-define method print-object(btree :: <btree-branch>, stream :: <stream>) => ()
+define method print-object (btree :: <btree-branch>, stream :: <stream>) => ()
   print-object(btree.left, stream);
   format(stream, "(%s %s)", btree.key, btree.val);
   print-object(btree.right, stream);

@@ -14,17 +14,17 @@ define constant lookup = btree-lookup;
 
 
 
-// define inline function aupdate(k :: <integer>, v, map :: <list>)
+// define inline function aupdate (k :: <integer>, v, map :: <list>)
 //   pair(pair(k, v), map);
 // end;
 
 // define function alookup (lv :: <integer>, substitution :: <substitution>)
 //   if (empty?(substitution))
 //     $asoc-not-found;
-//   else 
+//   else
 //     let first :: <pair> = head(substitution);
 //     let var :: <integer> = head(first);
-//     case  
+//     case
 //       lv == var => tail(first);
 //       otherwise => alookup(lv, tail(substitution));
 //     end case;
@@ -42,8 +42,9 @@ define constant lookup = btree-lookup;
 define sealed class <logic-var> (<object>)
  slot id :: <integer>, required-init-keyword: id:;
 end;
-define sealed domain make(singleton(<logic-var>));
-define sealed domain initialize(<logic-var>);
+
+define sealed domain make (singleton(<logic-var>));
+define sealed domain initialize (<logic-var>);
 
 define method print-object(object :: <logic-var>, stream :: <stream>) => ()
   // format(stream, "<lvar %s>", object.id);
@@ -54,10 +55,11 @@ define sealed class <minikanren-state> (<object>)
   slot substitution :: <substitution>, required-init-keyword: s:;
   slot counter :: <integer>, required-init-keyword: c:;
 end;
-define sealed domain make(singleton(<minikanren-state>));
-define sealed domain initialize(<minikanren-state>);
 
-define method print-object(object :: <minikanren-state>, stream :: <stream>) => ()
+define sealed domain make (singleton(<minikanren-state>));
+define sealed domain initialize (<minikanren-state>);
+
+define method print-object (object :: <minikanren-state>, stream :: <stream>) => ()
   format(stream, "<mks s: %s, c: %s>", object.substitution, object.counter);
 end;
 
@@ -66,11 +68,11 @@ define inline function make-lvar (id :: <integer>) => (lvar :: <logic-var>)
 end function make-lvar;
 
 define inline function lvar? (obj) => (is-lvar? :: <boolean>)
-  instance?(obj, <logic-var>); 
+  instance?(obj, <logic-var>);
 end function lvar?;
 
 define inline function lvar=? (lvar1 :: <logic-var>, lvar2 :: <logic-var>)
-  => (vars-equal? :: <boolean>)
+ => (vars-equal? :: <boolean>)
   lvar1.id == lvar2.id;
 end function lvar=?;
 
@@ -79,7 +81,7 @@ define function occurs-check (x :: <logic-var>, v, s :: <substitution>) => (occu
   let v^ = walk(v, s);
   case
       lvar?(v^) => lvar=?(v^, x);
-      pair?(v^) => begin 
+      pair?(v^) => begin
                      let v^^ :: <pair> = v^;
                      (occurs-check(x, head(v^^), s)
                         | occurs-check(x, tail(v^^), s));
@@ -89,7 +91,7 @@ define function occurs-check (x :: <logic-var>, v, s :: <substitution>) => (occu
 end function occurs-check;
 
 define function extend-s (x :: <logic-var>, v, s :: <substitution>)
-  => (new-s :: type-union(singleton(#f), <substitution>))
+ => (new-s :: type-union(singleton(#f), <substitution>))
   if (occurs-check(x, v, s))
     #f;
   else
@@ -97,7 +99,7 @@ define function extend-s (x :: <logic-var>, v, s :: <substitution>)
   end if;
 end function extend-s;
 
-define function walk(u, substitution :: <substitution>) => (root-value)
+define function walk (u, substitution :: <substitution>) => (root-value)
   if (lvar?(u))
     let pr = lookup(u.id, substitution);
     if (pr ~= $substitution-not-found)
@@ -110,7 +112,7 @@ define function walk(u, substitution :: <substitution>) => (root-value)
   end if;
 end function walk;
 
-define function eqeq(u, v) => (stream :: <mk-stream>)
+define function eqeq (u, v) => (stream :: <mk-stream>)
   method(mk-state :: <minikanren-state>)
     let new-substitution = unify(u, v, mk-state.substitution);
     if (new-substitution)
@@ -128,18 +130,18 @@ define inline function unit (mk-state :: <minikanren-state>)
 end function unit;
 
 define inline function pair? (obj) => (is-pair? :: <boolean>)
-  instance?(obj, <pair>) 
+  instance?(obj, <pair>)
 end function pair?;
 
 define inline function unify-pair (u :: <pair>, v :: <pair>, s :: <substitution>)
-  => (result :: type-union(singleton(#f), <substitution>))
+ => (result :: type-union(singleton(#f), <substitution>))
   let s^ = unify(head(u), head(v), s);
   s^ & unify(tail(u), tail(v), s^);
 end function unify-pair;
 
 // will need to collect prefix for =/=; dylan doesn't have eq?
 define function unify (u, v, s :: <substitution>)
-  => (result  :: type-union(singleton(#f), <substitution>))
+ => (result  :: type-union(singleton(#f), <substitution>))
   let u = walk(u, s);
   let v = walk(v, s);
   case
@@ -168,21 +170,21 @@ define function call/fresh (fn :: <function>) => (goal :: <goal>)
 end function call/fresh;
 
 define function disj (goal1 :: <goal>, goal2 :: <goal>)
-  => (interleaved-goals :: <goal>)
+ => (interleaved-goals :: <goal>)
   method(mk-state :: <minikanren-state>)
     mplus(goal1(mk-state), goal2(mk-state));
   end method;
 end function disj;
 
 define function conj (goal1 :: <goal>, goal2 :: <goal>)
-  => (conjoined-goals :: <goal>)
+ => (conjoined-goals :: <goal>)
   method(mk-state :: <minikanren-state>)
     bind(goal1(mk-state), goal2);
   end method;
 end function conj;
 
 define function mplus (stream1 :: <mk-stream>, stream2 :: <mk-stream>)
-  => (interleaved-stream :: <mk-stream>)
+ => (interleaved-stream :: <mk-stream>)
   if (instance?(stream1, <function>))
     method() mplus(stream2, stream1()) end;
   else
@@ -195,7 +197,7 @@ define function mplus (stream1 :: <mk-stream>, stream2 :: <mk-stream>)
 end function mplus;
 
 define function bind (stream :: <mk-stream>, goal)
-  => (new-stream :: <mk-stream>)
+ => (new-stream :: <mk-stream>)
   if (instance?(stream, <function>))
     method() bind(stream(), goal) end;
   else
@@ -248,12 +250,12 @@ define macro conde
 end macro conde;
 
 define macro run
-  { run (?n:expression, ?lvars:*) ?goals:* end } => 
+  { run (?n:expression, ?lvars:*) ?goals:* end } =>
     { map(reify-1st, take(?n, call/goal(fresh (?lvars) ?goals end))) }
 end;
 
 define macro run*
-  { run*(?lvars:*) ?goals:* end } => 
+  { run*(?lvars:*) ?goals:* end } =>
     { map(reify-1st, take-all(call/goal(fresh (?lvars) ?goals end))) }
 end;
 
@@ -261,11 +263,11 @@ define constant $empty-state = make(<minikanren-state>, s: $empty-substitution, 
 define constant <mk-stream> = type-union(<function>, <list>);
 define constant <goal> = <function>;
 
-define function call/goal(g :: <goal>)
+define function call/goal (g :: <goal>)
   g($empty-state);
 end function call/goal;
 
-define function pull(stream :: <mk-stream>) => (forced :: <list>)
+define function pull (stream :: <mk-stream>) => (forced :: <list>)
   if (instance?(stream, <function>))
     pull(stream());
   else
@@ -273,10 +275,10 @@ define function pull(stream :: <mk-stream>) => (forced :: <list>)
   end if;
 end function pull;
 
-define function take(n :: <integer>, stream :: <mk-stream>)
+define function take (n :: <integer>, stream :: <mk-stream>)
   if (zero?(n))
     mzero;
-  else 
+  else
     let stream^ = pull(stream);
     if (empty?(stream^))
       mzero;
@@ -286,7 +288,7 @@ define function take(n :: <integer>, stream :: <mk-stream>)
   end if;
 end function take;
 
-define function take-all(stream :: <mk-stream>)
+define function take-all (stream :: <mk-stream>)
   let stream^ = pull(stream);
   if (empty?(stream^))
     mzero;
@@ -313,7 +315,7 @@ define function walk* (v, s :: <substitution>)
   end case;
 end function walk*;
 
-define function reify-s(v, s :: <substitution>)
+define function reify-s (v, s :: <substitution>)
   let v^ = walk(v, s);
   case
     lvar?(v^) => begin
