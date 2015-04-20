@@ -1,7 +1,6 @@
 Module: miniKanren
-Synopsis: 
-Author:
-Copyright: 
+Author: David Kahn
+Copyright: Copyright (c) 2015 David Kahn. See LICENSE for details.
 
 
 define constant <substitution> = <btree>;

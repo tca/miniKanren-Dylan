@@ -1,7 +1,6 @@
 Module: llrb-tree
-Synopsis: 
-Author:
-Copyright: 
+Author: David Kahn
+Copyright: Copyright (c) 2015 David Kahn. See LICENSE for details.
 
 define class <btree> (<object>)
 end class;

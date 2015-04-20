@@ -1,4 +1,6 @@
 Module: dylan-user
+Author: David Kahn
+Copyright: Copyright (c) 2015 David Kahn. See LICENSE for details.
 
 define library miniKanren
   use common-dylan;
