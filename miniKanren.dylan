@@ -467,11 +467,14 @@ define function call/goal (g :: <goal>)
 end function call/goal;
 
 define function pull (stream :: <mk-stream>) => (forced :: <list>)
-  if (instance?(stream, <function>))
-    pull(stream());
-  else
-    stream;
-  end if;
+  iterate loop (s :: <mk-stream> = stream)
+    if (instance?(s, <function>))
+      let s :: <mk-stream> = s();
+      loop(s)
+    else
+      s
+    end if
+  end iterate
 end function pull;
 
 define function take (n :: <integer>, stream :: <mk-stream>)
