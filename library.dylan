@@ -16,7 +16,7 @@ define module llrb-tree
   use format-out;
 
   export btree-lookup, $btree-not-found, $empty-btree,
-    btree-update, <btree>;
+    btree-update, btree-for-each, <btree>;
 end module binary-tree;
 
 define module miniKanren
@@ -28,6 +28,7 @@ define module miniKanren
 
   export
     eqeq, not-eqeq, absento,
+    symbolo, numbero,
     conj, disj,
     conde, fresh, run, run*
 end module miniKanren;

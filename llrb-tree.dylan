@@ -125,6 +125,14 @@ define function btree-update% (k :: <integer>, v, btree :: <btree>)
   end if;
 end function;
 
+define function btree-for-each (fn, btree :: <btree>) => ()
+  if (instance?(btree, <btree-branch>))
+    btree-for-each(fn, btree.left);
+    fn(btree.key, btree.val);
+    btree-for-each(fn, btree.right);
+  end if;
+end;
+
 define function btree-size (btree :: <btree>) => (size :: <integer>)
   case
     instance?(btree, <btree-branch>) =>
