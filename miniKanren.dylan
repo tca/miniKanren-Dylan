@@ -54,13 +54,15 @@ end;
 define sealed class <minikanren-state> (<object>)
   constant slot substitution :: <substitution>, required-init-keyword: s:;
   constant slot counter :: <integer>, required-init-keyword: c:;
+  constant slot disequality :: <list>, required-init-keyword: d:;
 end;
 
 define sealed domain make (singleton(<minikanren-state>));
 define sealed domain initialize (<minikanren-state>);
 
 define method print-object (object :: <minikanren-state>, stream :: <stream>) => ()
-  format(stream, "<mks s: %s, c: %s>", object.substitution, object.counter);
+  format(stream, "<mks s: %s, c: %s, d: %s>",
+         object.substitution, object.counter, object.disequality);
 end;
 
 define inline function make-lvar (id :: <integer>) => (lvar :: <logic-var>)
@@ -116,12 +118,26 @@ define function eqeq (u, v) => (stream :: <mk-stream>)
   method(mk-state :: <minikanren-state>)
     let new-substitution = unify(u, v, mk-state.substitution);
     if (new-substitution)
-      unit(make(<minikanren-state>, s: new-substitution, c: mk-state.counter));
+      normalize-constraint-store(make(<minikanren-state>, s: new-substitution, c: mk-state.counter, d: mk-state.disequality));
     else
       mzero;
     end if;
   end method;
 end function eqeq;
+
+define function not-eqeq (u, v) => (stream :: <mk-stream>)
+  method(mk-state :: <minikanren-state>)
+    let d = disunify(u, v, mk-state.substitution);
+    if (d)
+      unit(make(<minikanren-state>,
+                s: mk-state.substitution,
+                c: mk-state.counter,
+                d: pair(d, mk-state.disequality)));
+    else
+      mzero;
+    end if;
+  end method;
+end function not-eqeq;
 
 define constant mzero = #();
 
@@ -139,7 +155,6 @@ define inline function unify-pair (u :: <pair>, v :: <pair>, s :: <substitution>
   s^ & unify(tail(u), tail(v), s^);
 end function unify-pair;
 
-// will need to collect prefix for =/=; dylan doesn't have eq?
 define function unify (u, v, s :: <substitution>)
  => (result  :: type-union(singleton(#f), <substitution>))
   let u = walk(u, s);
@@ -158,12 +173,91 @@ define function unify (u, v, s :: <substitution>)
   end case;
 end function unify;
 
+define function extend-s-prefix (x :: <logic-var>, v, s :: <substitution>, p)
+ => (new-s :: type-union(singleton(#f), <substitution>), p^)
+  if (occurs-check(x, v, s))
+    values(#f, p);
+  else
+    values(update(x.id, v, s), pair(pair(x, v), p));
+  end if;
+end function extend-s-prefix;
+
+
+define function unify-prefix (u, v, s :: <substitution>, p)
+ => (result  :: type-union(singleton(#f), <substitution>), p^)
+  let u = walk(u, s);
+  let v = walk(v, s);
+  case
+    lvar?(u) & lvar?(v) & lvar=?(u, v) => values(s, p);
+    lvar?(u) => extend-s-prefix(u, v, s, p);
+    lvar?(v) => extend-s-prefix(v, u, s, p);
+    pair?(u) & pair?(v) => begin
+                             let u^ :: <pair> = u;
+                             let v^ :: <pair> = v;
+                             let (s^, p^) = unify-prefix(head(u^), head(v^), s, p);
+                             if (s^)
+                               unify-prefix(tail(u^), tail(v^), s^, p^);
+                             else
+                               values(#f, p);
+                             end
+                           end;
+    (u == v) => values(s, p);
+    otherwise => values(#f, p);
+  end case;
+end function unify-prefix;
+
+define function disunify (u, v, s :: <substitution>)
+  let (s^, d) = unify-prefix(u, v, s, #());
+  if (s^)
+    (d ~== #()) & d;
+  else
+    #();
+  end if;
+end function disunify;
+
+define function normalize-constraint-store (mk-state :: <minikanren-state>)
+  let s = mk-state.substitution;
+  let c = mk-state.counter;
+  let d = mk-state.disequality;
+
+  let s^ = s;
+  let c^ = c;
+  let d^ = #();
+
+  block (return)
+    while (d ~== #())
+      let es = head(d);
+
+      if (es ~== #())
+        let hs_ts = reduce(method (m, c)
+                             pair(pair(head(c), head(m)),
+                                  pair(tail(c), tail(m)));
+                           end,
+                           pair(#(), #()),
+                           es);
+        let d^^ = disunify(head(hs_ts), tail(hs_ts), s);
+
+        if (d^^ == #f)
+          return(mzero);
+        end if;
+
+        d^ := pair(d^^, d^);
+      end if;
+
+      d := tail(d);
+    end while;
+
+    unit(make(<minikanren-state>, s: s^, c: c^, d: d^));
+  end block;
+end function normalize-constraint-store;
+
 define function call/fresh (fn :: <function>) => (goal :: <goal>)
   method(mk-state :: <minikanren-state>)
     let c = mk-state.counter;
     let mk-state^ = make(<minikanren-state>,
                          s: mk-state.substitution,
-                         c: c + 1);
+                         c: c + 1,
+                         d: mk-state.disequality);
     let goal = fn(make-lvar(c));
     goal(mk-state^);
   end method;
@@ -259,7 +353,7 @@ define macro run*
     { map(reify-1st, take-all(call/goal(fresh (?lvars) ?goals end))) }
 end;
 
-define constant $empty-state = make(<minikanren-state>, s: $empty-substitution, c:0);
+define constant $empty-state = make(<minikanren-state>, s: $empty-substitution, c: 0, d: #());
 define constant <mk-stream> = type-union(<function>, <list>);
 define constant <goal> = <function>;
 

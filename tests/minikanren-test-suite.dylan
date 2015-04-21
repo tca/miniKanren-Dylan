@@ -68,6 +68,31 @@ define test test-append ()
                 #(#(1, 2, 3, 4, 5, 6), #())));
 end;
 
+define function membero (x, l)
+  fresh (head, tail)
+    eqeq(l, pair(head, tail));
+    conde
+      { eqeq(x, head) };
+      { membero(x, tail) };
+    end;
+  end;
+end;
+
+define function membero-minus ()
+  run* (q)
+    fresh (x, y)
+      eqeq(x, y);
+      eqeq(y, q);
+      membero(q, #(1, 2, 3, 4, 5));
+      not-eqeq(x, 3);
+    end;
+  end;
+end;
+
+define test test-disequality ()
+  check-equal("members-minus", membero-minus(), #(1, 2, 4, 5));
+end;
+
 define benchmark lists1 ()
   run (100, q)
     fresh (x, y, z)
@@ -98,6 +123,7 @@ end;
 
 define suite minikanren-test-suite ()
   test test-append;
+  test test-disequality;
   benchmark lists1;
   benchmark lists2;
 end;
