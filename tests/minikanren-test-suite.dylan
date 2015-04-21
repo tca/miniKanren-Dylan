@@ -134,12 +134,139 @@ define benchmark lists2 ()
   end;
 end;
 
+define function lookupo (x, env, out)
+  fresh (y, val, env^)
+    eqeq(pair(pair(y, val), env^), env);
+    symbolo(x); symbolo(y);
+    conde
+      { eqeq(x, y); eqeq(val, out) };
+      { not-eqeq(x, y); lookupo(x, env^, out) };
+    end;
+  end;
+end function lookupo;
+
+define function unboundo (x, env)
+  fresh ()
+    symbolo(x);
+    conde
+      { eqeq(#(), env) };
+      { fresh(y, v, env^)
+          eqeq(pair(pair(y, v), env^), env);
+          not-eqeq(x, y);
+          unboundo(x, env^);
+        end; };
+    end;
+  end;
+end function unboundo;
+
+define function eval-expo (expr, env, out)
+  conde
+// variable
+{ symbolo(expr); lookupo(expr, env, out) };
+{ eqeq(list(quote:, out), expr);
+  absento(closure:, out);
+  unboundo(quote:, env) };
+{ fresh(x, body)
+    eqeq(list(lambda:, list(x), body), expr);
+    eqeq(list(closure:, x, body, env), out);
+    symbolo(x);
+    unboundo(lambda:, env)
+  end };
+{ fresh(expr*)
+    eqeq(pair(list:, expr*), expr);
+    unboundo(list:, env);
+    eval-exp*o(expr*, env, out)
+  end};
+{ fresh (e1, e2, val, x, body, env^)
+    eqeq(list(e1, e2), expr);
+    eval-expo(e1, env, list(closure:, x, body, env^));
+    eval-expo(e2, env, val);
+    eval-expo(body, pair(pair(x, val), env^), out)
+  end };
+{ fresh (e1, e2, v1, v2)
+    eqeq(list(cons:, e1, e2), expr);
+    eqeq(pair(v1, v2), out);
+    unboundo(cons:, env);
+    eval-expo(e1, env, v1);
+    eval-expo(e2, env, v2);
+  end };
+{ fresh (e, v2)
+    eqeq(list(car:, e), expr);
+    unboundo(car:, env);
+    eval-expo(e, env, pair(out, v2));
+  end };
+{ fresh (e, v1)
+    eqeq(list(cdr:, e), expr);
+    unboundo(cdr:, env);
+    eval-expo(e, env, pair(v1, out));
+  end };
+{ fresh (e, v)
+    eqeq(list(null?:, e), expr);
+    conde
+      { eqeq(#(), v); eqeq(#t, out) };
+      { not-eqeq(#(), v); eqeq(#f, out) };
+    end;
+    unboundo(null?:, env);
+    eval-expo(e, env, v)
+  end };
+{ fresh (t, c, a, b)
+    eqeq(list(if:, t, c, a), expr);
+    unboundo(if:, env);
+    eval-expo(t, env, b);
+    conde
+      { eqeq(#f, b); eval-expo(a, env, out) };
+      { not-eqeq(#f, b); eval-expo(c, env, out) };
+    end;
+  end };
+  end;
+end function eval-expo;
+
+define function eval-exp*o (expr*, env, out)
+  conde
+    { eqeq(#(), expr*); eqeq(#(), out) };
+    { fresh (a, d, res-a, res-d)
+        eqeq(pair(a, d), expr*);
+        eqeq(pair(res-a, res-d), out);
+        eval-expo(a, env, res-a);
+        eval-exp*o(d, env, res-d)
+      end };
+  end
+end function eval-exp*o;
+
+define function interp-lists-test ()
+  let program = list(car:, list(list:, list(quote:, x:)));
+  run* (q)
+    eval-expo(program, #(), q);
+  end;
+end;
+
+define function interp-apply-test ()
+  let fn = list(lambda:, list(x:), x:);
+  let program = list(fn, list(quote:, x:));
+  run* (q)
+    eval-expo(program, #(), q);
+  end;
+end;
+
+define test relational-interpreter ()
+  check-equal("(car (list 'x))", interp-lists-test(), #(x:));
+  check-equal("((lambda (x) x) 'x)", interp-apply-test(), #(x:));
+end;
+
+define benchmark quines ()
+  run (1, q)
+    eval-expo(q, #(), q);
+  end;
+end;
+
 define suite minikanren-test-suite ()
   test test-append;
   test test-disequality;
   test test-absento;
   benchmark lists1;
   benchmark lists2;
+  test relational-interpreter;
+  //benchmark quines;
 end;
 
 begin

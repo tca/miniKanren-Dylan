@@ -153,15 +153,15 @@ define function type-check (v, t, s, ty)
   let v^ = walk(v, s);
   case
     lvar?(v^) => begin
-                   let existing_type = btree-lookup(v^, ty);
+                   let existing_type = btree-lookup(v^.id, ty);
                    if ((existing_type ~== $btree-not-found) & (existing_type ~== t))
                      #f;
                    else
-                     btree-update(v^, t, ty);
+                     btree-update(v^.id, t, ty);
                    end if;
                  end;
     instance?(v^, t) => ty;
-    otherwise =>  #f;
+    otherwise => #f;
   end case;
 end function type-check;
 
@@ -296,8 +296,8 @@ define function normalize-constraint-store (mk-state :: <minikanren-state>)
 
   block (return)
     // normalize typeo constraints
-    btree-for-each(method(type, v)
-                     t^ := type-check(v, type, s, t^);
+    btree-for-each(method(id, typ)
+                     t^ := type-check(make-lvar(id), typ, s, t^);
                      if (~(t^))
                        return(mzero);
                      end if;
