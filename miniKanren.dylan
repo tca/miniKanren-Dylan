@@ -55,6 +55,7 @@ define sealed class <minikanren-state> (<object>)
   constant slot substitution :: <substitution>, required-init-keyword: s:;
   constant slot counter :: <integer>, required-init-keyword: c:;
   constant slot disequality :: <list>, required-init-keyword: d:;
+  constant slot absentee :: <list>, required-init-keyword: a:;
 end;
 
 define sealed domain make (singleton(<minikanren-state>));
@@ -118,7 +119,7 @@ define function eqeq (u, v) => (stream :: <mk-stream>)
   method(mk-state :: <minikanren-state>)
     let new-substitution = unify(u, v, mk-state.substitution);
     if (new-substitution)
-      normalize-constraint-store(make(<minikanren-state>, s: new-substitution, c: mk-state.counter, d: mk-state.disequality));
+      normalize-constraint-store(make(<minikanren-state>, s: new-substitution, c: mk-state.counter, d: mk-state.disequality, a: mk-state.absentee));
     else
       mzero;
     end if;
@@ -132,12 +133,23 @@ define function not-eqeq (u, v) => (stream :: <mk-stream>)
       unit(make(<minikanren-state>,
                 s: mk-state.substitution,
                 c: mk-state.counter,
-                d: pair(d, mk-state.disequality)));
+                d: pair(d, mk-state.disequality),
+                a: mk-state.absentee));
     else
       mzero;
     end if;
   end method;
 end function not-eqeq;
+
+define function absento (s, f)
+  method (mk-state :: <minikanren-state>)
+    normalize-constraint-store(make(<minikanren-state>,
+                                    s: mk-state.substitution,
+                                    c: mk-state.counter,
+                                    d: mk-state.disequality,
+                                    a: pair(pair(s, f), mk-state.absentee)));
+  end method;
+end function absento;
 
 define constant mzero = #();
 
@@ -219,12 +231,15 @@ define function normalize-constraint-store (mk-state :: <minikanren-state>)
   let s = mk-state.substitution;
   let c = mk-state.counter;
   let d = mk-state.disequality;
+  let a = mk-state.absentee;
 
   let s^ = s;
   let c^ = c;
   let d^ = #();
+  let a^ = a;
 
   block (return)
+    // normalize disequality constraints
     while (d ~== #())
       let es = head(d);
 
@@ -247,7 +262,27 @@ define function normalize-constraint-store (mk-state :: <minikanren-state>)
       d := tail(d);
     end while;
 
-    unit(make(<minikanren-state>, s: s^, c: c^, d: d^));
+    // normalize the absento constraints
+    while (a ~== #())
+      let a^^ = head(a);
+      a := tail(a);
+      
+      let a_s = walk(head(a^^), s);
+      let a_f = walk(tail(a^^), s);
+
+      case
+        // defer until both terms are ground
+        lvar?(a_f) | lvar?(a_s) => a^ := pair(pair(a_s, a_f), a^);
+        // split and requeue
+        pair?(a_f) => a := pair(pair(a_s, head(a_f)),
+                                pair(pair(a_s, tail(a_f)), a));
+        // both are ground and atomic; check for eqv?
+        a_s == a_f => return(mzero);
+      end case;
+      // forget constraint, it can never fail
+    end while;
+    
+    unit(make(<minikanren-state>, s: s^, c: c^, d: d^, a: a^));
   end block;
 end function normalize-constraint-store;
 
@@ -257,7 +292,8 @@ define function call/fresh (fn :: <function>) => (goal :: <goal>)
     let mk-state^ = make(<minikanren-state>,
                          s: mk-state.substitution,
                          c: c + 1,
-                         d: mk-state.disequality);
+                         d: mk-state.disequality,
+                         a: mk-state.absentee);
     let goal = fn(make-lvar(c));
     goal(mk-state^);
   end method;
@@ -353,7 +389,10 @@ define macro run*
     { map(reify-1st, take-all(call/goal(fresh (?lvars) ?goals end))) }
 end;
 
-define constant $empty-state = make(<minikanren-state>, s: $empty-substitution, c: 0, d: #());
+define constant $empty-state = make(<minikanren-state>,
+                                    s: $empty-substitution,
+                                    c: 0, d: #(),
+                                    a: #());
 define constant <mk-stream> = type-union(<function>, <list>);
 define constant <goal> = <function>;
 

@@ -27,6 +27,7 @@ define module miniKanren
   use llrb-tree;
 
   export
-    eqeq, not-eqeq, conj, disj,
+    eqeq, not-eqeq, absento,
+    conj, disj,
     conde, fresh, run, run*
 end module miniKanren;

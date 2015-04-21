@@ -93,6 +93,19 @@ define test test-disequality ()
   check-equal("members-minus", membero-minus(), #(1, 2, 4, 5));
 end;
 
+define function membero-absento ()
+  run* (q)
+    fresh (x, y)
+      absento(q, 3);
+      membero(q, #(1, 2, 3, 4, 5));
+    end;
+  end;
+end;
+
+define test test-absento ()
+  check-equal("members-absento", membero-absento(), #(1, 2, 4, 5));
+end;
+
 define benchmark lists1 ()
   run (100, q)
     fresh (x, y, z)
@@ -124,6 +137,7 @@ end;
 define suite minikanren-test-suite ()
   test test-append;
   test test-disequality;
+  test test-absento;
   benchmark lists1;
   benchmark lists2;
 end;
