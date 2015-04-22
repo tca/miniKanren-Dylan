@@ -3,6 +3,11 @@ Synopsis:
 Author:
 License:
 
+define test simple ()
+  let equal = run (1, q) eqeq(1, 2); end;
+  check-equal("== constants", equal, #());
+end;
+
 define function appendo (l, s, out)
   conde
     { eqeq(#(), l); eqeq(s, out) };
@@ -66,6 +71,22 @@ define test test-append ()
                 #(#(1, 2, 3, 4), #(5, 6)),
                 #(#(1, 2, 3, 4, 5), #(6)),
                 #(#(1, 2, 3, 4, 5, 6), #())));
+end;
+
+define function test-occurs-check1 ()
+  run* (q)
+    fresh (y)
+      conde
+      { eqeq(y, list(1, 2, q));
+        eqeq(q, list(1, 2, y)) };
+      { eqeq(q, list(1, 2, q)) };
+      end;
+    end;
+  end;
+end;
+
+define test test-occurs-check ()
+  check-equal("occurs-check", test-occurs-check1(), #());
 end;
 
 define function membero (x, l)
@@ -166,23 +187,27 @@ define function eval-expo (expr, env, out)
 { eqeq(list(quote:, out), expr);
   absento(closure:, out);
   unboundo(quote:, env) };
+// lambda
 { fresh(x, body)
     eqeq(list(lambda:, list(x), body), expr);
     eqeq(list(closure:, x, body, env), out);
     symbolo(x);
-    unboundo(lambda:, env)
+    unboundo(lambda:, env);
   end };
+// list
 { fresh(expr*)
     eqeq(pair(list:, expr*), expr);
     unboundo(list:, env);
     eval-exp*o(expr*, env, out)
   end};
+// application
 { fresh (e1, e2, val, x, body, env^)
     eqeq(list(e1, e2), expr);
     eval-expo(e1, env, list(closure:, x, body, env^));
     eval-expo(e2, env, val);
     eval-expo(body, pair(pair(x, val), env^), out)
   end };
+//cons
 { fresh (e1, e2, v1, v2)
     eqeq(list(cons:, e1, e2), expr);
     eqeq(pair(v1, v2), out);
@@ -253,6 +278,12 @@ define test relational-interpreter ()
   check-equal("((lambda (x) x) 'x)", interp-apply-test(), #(x:));
 end;
 
+define benchmark interp-reverse ()
+  let foo = run (35, q)
+    eval-expo(q, #(), x:);
+  end;
+end;
+
 define benchmark quines ()
   run (1, q)
     eval-expo(q, #(), q);
@@ -260,12 +291,15 @@ define benchmark quines ()
 end;
 
 define suite minikanren-test-suite ()
+  test simple;
   test test-append;
+  test test-occurs-check;
   test test-disequality;
   test test-absento;
   benchmark lists1;
   benchmark lists2;
   test relational-interpreter;
+  benchmark interp-reverse;
   //benchmark quines;
 end;
 
