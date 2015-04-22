@@ -331,24 +331,25 @@ define function normalize-constraint-store (mk-state :: <minikanren-state>)
     end while;
 
     // normalize the absento constraints
-    while (~(empty?(a)))
-      let a^^ = head(a);
-      a := tail(a);
-      
-      let a_s = walk(head(a^^), s);
-      let a_f = walk(tail(a^^), s);
+    iterate loop (a = a, a^ = a^)
+      if (~(empty?(a)))
+        let a^^ :: <pair> = head(a);
+        let a_s = walk(head(a^^), s);
+        let a_f = walk(tail(a^^), s);
 
-      case
-        // defer until both terms are ground
-        lvar?(a_f) | lvar?(a_s) => a^ := pair(pair(a_s, a_f), a^);
-        // split and requeue
-        pair?(a_f) => a := pair(pair(a_s, head(a_f)),
-                                pair(pair(a_s, tail(a_f)), a));
-        // both are ground and atomic; check for eqv?
-        a_s == a_f => return(mzero);
-      end case;
-      // forget constraint, it can never fail
-    end while;
+        case
+          // defer until both terms are ground
+          lvar?(a_f) | lvar?(a_s) => loop(tail(a), pair(pair(a_s, a_f), a^));
+          // split and requeue
+          pair?(a_f) => loop(pair(pair(a_s, head(a_f)),
+                                  pair(pair(a_s, tail(a_f)), tail(a))),
+                             a^);
+          // both are ground and atomic; check for eqv?
+          a_s == a_f => return(mzero);
+        end case;
+        // forget constraint, it can never fail
+      end;
+    end;
     
     unit(make(<minikanren-state>, s: s^, c: c^, d: d^, a: a^, t: t^));
   end block;
