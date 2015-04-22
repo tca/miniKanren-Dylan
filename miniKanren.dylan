@@ -10,9 +10,6 @@ define constant $empty-substitution = $empty-btree;
 define constant update = btree-update;
 define constant lookup = btree-lookup;
 
-
-
-
 // define inline function aupdate (k :: <integer>, v, map :: <list>)
 //   pair(pair(k, v), map);
 // end;
@@ -293,46 +290,52 @@ define function normalize-constraint-store (mk-state :: <minikanren-state>)
 
   let s^ = s;
   let c^ = c;
-  let d^ = #();
-  let a^ = a;
-  let t^ = $empty-btree;
 
   block (return)
     // normalize typeo constraints
-    btree-for-each(method(id, typ)
-                     t^ := type-check(make-lvar(id), typ, s, t^);
-                     if (~(t^))
-                       return(mzero);
-                     end if;
-                   end method,
-                   t);
+    let new-t = btree-reduce(method(t^, id, typ)
+                               let t^ = type-check(make-lvar(id), typ, s, t^);
+                               if (t^)
+                                 t^
+                               else
+                                 return(mzero);
+                               end if;
+                             end method,
+                             $empty-btree,
+                             t);
 
     // normalize disequality constraints
-    while (~(empty?(d)))
-      let es = head(d);
+    let new-d = iterate loop (d = d, d^ = #())
+      if(empty?(d))
+        d^;
+      else
+        let es = head(d);
 
-      if (~(empty?(es)))
-        let hs_ts = reduce(method (m, c)
-                             pair(pair(head(c), head(m)),
-                                  pair(tail(c), tail(m)));
-                           end,
-                           pair(#(), #()),
-                           es);
-        let d^^ = disunify(head(hs_ts), tail(hs_ts), s);
+        if (empty?(es))
+          loop(tail(d), d^);
+        else
+          let hs_ts = reduce(method (m, c)
+                               pair(pair(head(c), head(m)),
+                                    pair(tail(c), tail(m)));
+                             end,
+                             pair(#(), #()),
+                             es);
+          let d^^ = disunify(head(hs_ts), tail(hs_ts), s);
 
-        if (d^^ == #f)
-          return(mzero);
+          if (d^^ == #f)
+            return(mzero);
+          end if;
+
+          loop(tail(d), pair(d^^, d^));
         end if;
-
-        d^ := pair(d^^, d^);
       end if;
-
-      d := tail(d);
-    end while;
+    end iterate;
 
     // normalize the absento constraints
-    iterate loop (a = a, a^ = a^)
-      if (~(empty?(a)))
+    let new-a = iterate loop (a = a, a^ = #())
+      if (empty?(a))
+        a^;
+      else
         let a^^ :: <pair> = head(a);
         let a_s = walk(head(a^^), s);
         let a_f = walk(tail(a^^), s);
@@ -346,12 +349,13 @@ define function normalize-constraint-store (mk-state :: <minikanren-state>)
                              a^);
           // both are ground and atomic; check for eqv?
           a_s == a_f => return(mzero);
+          // forget constraint, it can never fail
+          otherwise => loop(tail(a), a^);
         end case;
-        // forget constraint, it can never fail
       end;
-    end;
+    end iterate;
     
-    unit(make(<minikanren-state>, s: s^, c: c^, d: d^, a: a^, t: t^));
+    unit(make(<minikanren-state>, s: s^, c: c^, d: new-d, a: new-a, t: new-t));
   end block;
 end function normalize-constraint-store;
 

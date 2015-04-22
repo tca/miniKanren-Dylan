@@ -133,6 +133,16 @@ define function btree-for-each (fn, btree :: <btree>) => ()
   end if;
 end;
 
+define function btree-reduce (fn :: <function>, init, btree :: <btree>)
+  => (final)
+  if (instance?(btree, <btree-branch>))
+    let lf = btree-reduce(fn, init, btree.left);
+    btree-reduce(fn, fn(lf, btree.key, btree.val), btree.right);
+  else
+    init;
+  end if;
+end;
+
 define function btree-size (btree :: <btree>) => (size :: <integer>)
   case
     instance?(btree, <btree-branch>) =>
