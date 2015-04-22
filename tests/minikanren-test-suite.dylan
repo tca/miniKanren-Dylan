@@ -158,7 +158,7 @@ end;
 define function lookupo (x, env, out)
   fresh (y, val, env^)
     eqeq(pair(pair(y, val), env^), env);
-    symbolo(x); symbolo(y);
+    //symbolo(x); symbolo(y);
     conde
       { eqeq(x, y); eqeq(val, out) };
       { not-eqeq(x, y); lookupo(x, env^, out) };
@@ -168,7 +168,7 @@ end function lookupo;
 
 define function unboundo (x, env)
   fresh ()
-    symbolo(x);
+    //symbolo(x);
     conde
       { eqeq(#(), env) };
       { fresh(y, v, env^)
@@ -288,9 +288,21 @@ define benchmark interp-reverse ()
 end;
 
 define benchmark quines ()
-  run (10, q)
+  let res = run (10, q)
     eval-expo(q, #(), q);
   end;
+  // print(res, *standard-output*, pretty?: #t);
+end;
+
+define benchmark twine ()
+  let res = run (1, q)
+    fresh (a, b)
+      eqeq(list(a, b), q);
+      eval-expo(b, #(), a);
+      eval-expo(a, #(), b);
+    end;
+  end;
+  // print(res, *standard-output*, pretty?: #t);
 end;
 
 define suite minikanren-test-suite ()
@@ -304,6 +316,7 @@ define suite minikanren-test-suite ()
   test relational-interpreter;
   benchmark interp-reverse;
   benchmark quines;
+  benchmark twine;
 end;
 
 begin
