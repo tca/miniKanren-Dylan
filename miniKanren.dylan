@@ -13,14 +13,13 @@ define constant lookup = btree-lookup;
 
 
 
-
 // define inline function aupdate (k :: <integer>, v, map :: <list>)
 //   pair(pair(k, v), map);
 // end;
 
 // define function alookup (lv :: <integer>, substitution :: <substitution>)
 //   if (empty?(substitution))
-//     $asoc-not-found;
+//     $assoc-not-found;
 //   else
 //     let first :: <pair> = head(substitution);
 //     let var :: <integer> = head(first);
@@ -31,13 +30,16 @@ define constant lookup = btree-lookup;
 //   end if;
 // end;
 
+// define sealed class <assoc-not-found> (<object>)
+// end;
+// define constant $assoc-not-found = make(<assoc-not-found>);
+
 // define constant <substitution> = <list>;
-// define constant $substitution-not-found = $assoc-not-found
+// define constant $substitution-not-found = $assoc-not-found;
 // define constant $empty-substitution = #();
 
 // define constant update = aupdate;
 // define constant lookup = alookup;
-
 
 define sealed class <logic-var> (<object>)
  constant slot id :: <integer>, required-init-keyword: id:;
@@ -47,8 +49,7 @@ define sealed domain make (singleton(<logic-var>));
 define sealed domain initialize (<logic-var>);
 
 define method print-object(object :: <logic-var>, stream :: <stream>) => ()
-  // format(stream, "<lvar %s>", object.id);
-  format(stream, "_.%s", object.id);
+  format(stream, "<lvar %s>", object.id);
 end;
 
 define sealed class <minikanren-state> (<object>)
@@ -104,16 +105,18 @@ define function extend-s (x :: <logic-var>, v, s :: <substitution>)
 end function extend-s;
 
 define function walk (u, substitution :: <substitution>) => (root-value)
-  if (lvar?(u))
-    let pr = lookup(u.id, substitution);
-    if (pr ~= $substitution-not-found)
-      walk(pr, substitution);
+  iterate loop (u = u)
+    if (lvar?(u))
+      let pr = lookup(u.id, substitution);
+      if (pr ~== $substitution-not-found)
+        loop(pr);
+      else
+        u;
+      end
     else
       u;
-    end
-  else
-    u;
-  end if;
+    end if;
+  end iterate;
 end function walk;
 
 define function eqeq (u, v) => (stream :: <mk-stream>)
@@ -275,7 +278,7 @@ end function unify-prefix;
 define function disunify (u, v, s :: <substitution>)
   let (s^, d) = unify-prefix(u, v, s, #());
   if (s^)
-    (d ~== #()) & d;
+    (~empty?(d)) & d;
   else
     #();
   end if;
@@ -305,10 +308,10 @@ define function normalize-constraint-store (mk-state :: <minikanren-state>)
                    t);
 
     // normalize disequality constraints
-    while (d ~== #())
+    while (~(empty?(d)))
       let es = head(d);
 
-      if (es ~== #())
+      if (~(empty?(es)))
         let hs_ts = reduce(method (m, c)
                              pair(pair(head(c), head(m)),
                                   pair(tail(c), tail(m)));
@@ -328,7 +331,7 @@ define function normalize-constraint-store (mk-state :: <minikanren-state>)
     end while;
 
     // normalize the absento constraints
-    while (a ~== #())
+    while (~(empty?(a)))
       let a^^ = head(a);
       a := tail(a);
       
@@ -517,12 +520,16 @@ define function walk* (v, s :: <substitution>)
   end case;
 end function walk*;
 
+define function reify-name (n :: <integer>) => (name :: <symbol>)
+  as(<symbol>, format-to-string("_.%d", n));
+end;
+
 define function reify-s (v, s :: <substitution>)
   let v^ = walk(v, s);
   case
     lvar?(v^) => begin
-                   let n = make-lvar(size(s));
-                   update(v^.id, n, s);
+                   let name :: <symbol> = reify-name(size(s));
+                   update(v^.id, name, s);
                  end;
     pair?(v^) => begin
                    let v^^ :: <pair> = v^;
