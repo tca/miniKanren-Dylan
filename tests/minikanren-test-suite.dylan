@@ -184,9 +184,18 @@ define function eval-expo (expr, env, out)
   conde
 // variable
 { symbolo(expr); lookupo(expr, env, out) };
-{ eqeq(list(quote:, out), expr);
-  absento(closure:, out);
-  unboundo(quote:, env) };
+// quote
+{ fresh (b)
+    eqeq(list(quote:, out), expr);
+    absento(closure:, out);
+    unboundo(quote:, env);
+  end };
+// list
+{ fresh(expr*)
+    eqeq(pair(list:, expr*), expr);
+    eval-exp*o(expr*, env, out);
+    unboundo(list:, env);
+  end };
 // lambda
 { fresh(x, body)
     eqeq(list(lambda:, list(x), body), expr);
@@ -194,12 +203,6 @@ define function eval-expo (expr, env, out)
     symbolo(x);
     unboundo(lambda:, env);
   end };
-// list
-{ fresh(expr*)
-    eqeq(pair(list:, expr*), expr);
-    unboundo(list:, env);
-    eval-exp*o(expr*, env, out)
-  end};
 // application
 { fresh (e1, e2, val, x, body, env^)
     eqeq(list(e1, e2), expr);
@@ -279,13 +282,13 @@ define test relational-interpreter ()
 end;
 
 define benchmark interp-reverse ()
-  let foo = run (35, q)
+  let foo = run (100, q)
     eval-expo(q, #(), x:);
   end;
 end;
 
 define benchmark quines ()
-  run (1, q)
+  run (10, q)
     eval-expo(q, #(), q);
   end;
 end;
@@ -300,7 +303,7 @@ define suite minikanren-test-suite ()
   benchmark lists2;
   test relational-interpreter;
   benchmark interp-reverse;
-  //benchmark quines;
+  benchmark quines;
 end;
 
 begin
